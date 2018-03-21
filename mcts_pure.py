@@ -5,9 +5,10 @@ A pure implementation of the Monte Carlo Tree Search (MCTS)
 @author: Junxiao Song
 """
 
-import numpy as np
 import copy
 from operator import itemgetter
+
+import numpy as np
 
 
 def rollout_policy_fn(board):
@@ -21,7 +22,7 @@ def policy_value_fn(board):
     """a function that takes in a state and outputs a list of (action, probability)
     tuples and a score for the state"""
     # return uniform probabilities and 0 score for pure MCTS
-    action_probs = np.ones(len(board.availables))/len(board.availables)
+    action_probs = np.ones(len(board.availables)) / len(board.availables)
     return zip(board.availables, action_probs), 0
 
 
@@ -30,7 +31,9 @@ class TreeNode(object):
     prior probability P, and its visit-count-adjusted prior score u.
     """
 
+    # yan: 使用单一TreeNode方式比Node+Edge要精简些
     def __init__(self, parent, prior_p):
+        # yan: 先验概率在节点创建时候就固定
         self._parent = parent
         self._children = {}  # a map from action to TreeNode
         self._n_visits = 0
@@ -63,7 +66,11 @@ class TreeNode(object):
         # Count visit.
         self._n_visits += 1
         # Update Q, a running average of values for all visits.
-        self._Q += 1.0*(leaf_value - self._Q) / self._n_visits
+        # yan: 这个更新感觉有点问题？leaf_value + self._Q
+        # yan: 这个应该是正确的, self._Q其实代表从parent->node这个edge的权重
+        # yan: 如果node对当前player好的话，那么对parent来说就不好。在调用update_recursive
+        # yan: 也可以看到输入值是 `-leaf_value`
+        self._Q += 1.0 * (leaf_value - self._Q) / self._n_visits
 
     def update_recursive(self, leaf_value):
         """Like a call to update(), but applied recursively for all ancestors.
@@ -117,9 +124,8 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        while(1):
+        while (1):
             if node.is_leaf():
-
                 break
             # Greedily select next move.
             action, node = node.select(self._c_puct)
@@ -130,6 +136,7 @@ class MCTS(object):
         end, winner = state.game_end()
         if not end:
             node.expand(action_probs)
+        # yan: 随机展开到叶子节点判断value
         # Evaluate the leaf node by random rollout
         leaf_value = self._evaluate_rollout(state)
         # Update value and visit count of nodes in this traversal.
@@ -162,6 +169,7 @@ class MCTS(object):
 
         Return: the selected action
         """
+        # yan：这个策略选择被访问次数最多的子节点
         for n in range(self._n_playout):
             state_copy = copy.deepcopy(state)
             self._playout(state_copy)
@@ -184,6 +192,7 @@ class MCTS(object):
 
 class MCTSPlayer(object):
     """AI player based on MCTS"""
+
     def __init__(self, c_puct=5, n_playout=2000):
         self.mcts = MCTS(policy_value_fn, c_puct, n_playout)
 

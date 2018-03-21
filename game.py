@@ -4,6 +4,7 @@
 """
 
 from __future__ import print_function
+
 import numpy as np
 
 
@@ -16,6 +17,7 @@ class Board(object):
         # board states stored as a dict,
         # key: move as location on the board,
         # value: player as pieces type
+        # yan: key是位置，value是player编号
         self.states = {}
         # need how many pieces in a row to win
         self.n_in_row = int(kwargs.get('n_in_row', 5))
@@ -44,12 +46,12 @@ class Board(object):
         return [h, w]
 
     def location_to_move(self, location):
-        if(len(location) != 2):
+        if (len(location) != 2):
             return -1
         h = location[0]
         w = location[1]
         move = h * self.width + w
-        if(move not in range(self.width * self.height)):
+        if (move not in range(self.width * self.height)):
             return -1
         return move
 
@@ -72,11 +74,13 @@ class Board(object):
                             self.last_move % self.height] = 1.0
         if len(self.states) % 2 == 0:
             square_state[3][:, :] = 1.0  # indicate the colour to play
+        # yan: 这个 ::-1 比较奇怪
         return square_state[:, ::-1, :]
 
     def do_move(self, move):
         self.states[move] = self.current_player
         self.availables.remove(move)
+        # yan: current player是编号
         self.current_player = (
             self.players[0] if self.current_player == self.players[1]
             else self.players[1]
@@ -90,28 +94,29 @@ class Board(object):
         n = self.n_in_row
 
         moved = list(set(range(width * height)) - set(self.availables))
-        if(len(moved) < self.n_in_row + 2):
+        if (len(moved) < self.n_in_row + 2):
             return False, -1
 
+        # yan: 根据moved来判断比赛是否结束
         for m in moved:
             h = m // width
             w = m % width
             player = states[m]
 
             if (w in range(width - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n))) == 1):
+                        len(set(states.get(i, -1) for i in range(m, m + n))) == 1):
                 return True, player
 
             if (h in range(height - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n * width, width))) == 1):
+                        len(set(states.get(i, -1) for i in range(m, m + n * width, width))) == 1):
                 return True, player
 
             if (w in range(width - n + 1) and h in range(height - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n * (width + 1), width + 1))) == 1):
+                        len(set(states.get(i, -1) for i in range(m, m + n * (width + 1), width + 1))) == 1):
                 return True, player
 
             if (w in range(n - 1, width) and h in range(height - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n * (width - 1), width - 1))) == 1):
+                        len(set(states.get(i, -1) for i in range(m, m + n * (width - 1), width - 1))) == 1):
                 return True, player
 
         return False, -1
@@ -171,7 +176,7 @@ class Game(object):
         players = {p1: player1, p2: player2}
         if is_shown:
             self.graphic(self.board, player1.player, player2.player)
-        while(1):
+        while (1):
             current_player = self.board.get_current_player()
             player_in_turn = players[current_player]
             move = player_in_turn.get_action(self.board)
@@ -194,7 +199,7 @@ class Game(object):
         self.board.init_board()
         p1, p2 = self.board.players
         states, mcts_probs, current_players = [], [], []
-        while(1):
+        while (1):
             move, move_probs = player.get_action(self.board,
                                                  temp=temp,
                                                  return_prob=1)
@@ -220,4 +225,6 @@ class Game(object):
                         print("Game end. Winner is player:", winner)
                     else:
                         print("Game end. Tie")
+                # yan: 输出比赛胜利一方，以及(state, winner or not, mcts probs)
+                # yan: 后面这个输入用于训练模型
                 return winner, zip(states, mcts_probs, winners_z)
